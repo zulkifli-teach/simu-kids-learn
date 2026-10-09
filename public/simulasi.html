@@ -2121,10 +2121,7 @@
       const pkgConfig = PACKAGES_CONFIG.find(p => p.id === pkgId);
       const subject = pkgConfig ? pkgConfig.subject : 'Bahasa Indonesia';
 
-      if (!questionText && !questionImg) {
-        showToast('Isi teks pertanyaan atau URL gambar pertanyaan!', 'warning');
-        return;
-      }
+      // Pertanyaan, stimulus, dan opsi boleh kosong — soal tetap bisa disimpan.
 
       let questionObj = {
         id: editId || 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -2152,11 +2149,6 @@
           text: document.getElementById(`opt_text_${k}`).value.trim(),
           img: document.getElementById(`opt_img_${k}`).value.trim()
         }));
-        const emptyOpt = questionObj.options.find(o => !o.text && !o.img);
-        if (emptyOpt) {
-          showToast(`Opsi ${emptyOpt.key} wajib diisi teks atau URL gambar!`, 'warning');
-          return;
-        }
       } else if (type === 'MCMA') {
         const checkedBoxes = Array.from(document.querySelectorAll('input[name="correctKeyChoice"]:checked')).map(el => el.value);
         if (checkedBoxes.length === 0) {
@@ -2169,11 +2161,6 @@
           text: document.getElementById(`opt_text_${k}`).value.trim(),
           img: document.getElementById(`opt_img_${k}`).value.trim()
         }));
-        const emptyOpt = questionObj.options.find(o => !o.text && !o.img);
-        if (emptyOpt) {
-          showToast(`Opsi ${emptyOpt.key} wajib diisi teks atau URL gambar!`, 'warning');
-          return;
-        }
       } else if (type === 'BS') {
         const statements = [0, 1, 2].map(i => {
           const sText = document.getElementById(`bs_text_${i}`).value.trim();
