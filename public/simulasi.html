@@ -1532,6 +1532,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="studentAnalysisModal">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h3 style="font-weight: 700; font-size: 1.15rem; color: var(--primary);">Analisis Hasil Siswa per Butir Soal</h3>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('studentAnalysisModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="studentAnalysisBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('studentAnalysisModal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: IMAGE LIGHTBOX ZOOM -->
   <div class="modal-overlay" id="imageZoomModal" onclick="closeModal('imageZoomModal')">
     <div style="max-width: 90vw; max-height: 90vh; position: relative;">
@@ -2663,7 +2676,7 @@
 
         tr.innerHTML = `
           <td><strong>${idx + 1}</strong></td>
-          <td><strong style="color:var(--text-main);">${escapeHTML(r.studentName)}</strong></td>
+          <td><a href="#" onclick="openStudentAnalysis('${escapeHTML(r.id)}'); return false;" title="Lihat analisis per butir soal" style="color:var(--primary); font-weight:700; text-decoration:underline;">${escapeHTML(r.studentName)}</a></td>
           <td>${escapeHTML(r.studentClass)} &bull; ${escapeHTML(r.studentSchool)}</td>
           <td>${escapeHTML(r.examTitle)} <span class="badge badge-secondary">${escapeHTML(r.examCode)}</span></td>
           <td>${startStr} - ${endStr}</td>
@@ -2677,6 +2690,46 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    function openStudentAnalysis(resultId) {
+      const r = getStoredData(STORAGE_KEYS.RESULTS, []).find(x => x.id === resultId);
+      if (!r) return;
+      const body = document.getElementById('studentAnalysisBody');
+      const items = Array.isArray(r.itemAnalysis) ? r.itemAnalysis : null;
+      const typeName = { PG: 'Pilihan Ganda', MCMA: 'Pilihan Ganda Kompleks (MCMA)', BS: 'Kategori (Benar/Salah)' };
+      let html = `<div style="margin-bottom:14px;"><strong style="font-size:1.1rem;">${escapeHTML(r.studentName)}</strong><br>
+        <span style="color:var(--text-muted);">${escapeHTML(r.studentClass || '')} &bull; ${escapeHTML(r.studentSchool || '')} &bull; ${escapeHTML(r.examTitle || '')}</span><br>
+        Nilai: <strong style="color:var(--primary);">${r.score}</strong> (KKM ${r.kkm || 75}) &bull; Benar ${r.correctCount ?? '-'} dari ${r.totalQuestions ?? '-'} soal</div>`;
+      if (!items || items.length === 0) {
+        html += `<p style="padding:14px; background:var(--bg-secondary, #f5f5f5); border-radius:8px;">Rincian per butir soal belum tersedia untuk hasil ini karena dikerjakan sebelum fitur analisis ditambahkan. Ujian berikutnya akan otomatis tercatat.</p>`;
+        body.innerHTML = html; openModal('studentAnalysisModal'); return;
+      }
+      const wrong = items.filter(i => !i.isCorrect);
+      const byType = {};
+      items.forEach(i => { const t = byType[i.type] = byType[i.type] || { n: 0, e: 0 }; t.n++; t.e += (typeof i.earned === 'number' ? i.earned : (i.isCorrect ? 1 : 0)); });
+      const level = p => p >= 75 ? ['Sudah kuat', 'badge-success'] : p >= 50 ? ['Perlu penguatan', 'badge-secondary'] : ['Perlu remedial', 'badge-danger'];
+      html += `<h4 style="margin:10px 0 6px;">Penguasaan per Bentuk Soal</h4><table class="table" style="width:100%;"><thead><tr><th>Bentuk Soal</th><th>Jumlah</th><th>Ketercapaian</th><th>Status</th></tr></thead><tbody>`;
+      Object.keys(byType).forEach(t => { const p = Math.round(byType[t].e / byType[t].n * 100); const [lbl, cls] = level(p);
+        html += `<tr><td>${typeName[t] || t}</td><td>${byType[t].n}</td><td>${p}%</td><td><span class="badge ${cls}">${lbl}</span></td></tr>`; });
+      html += `</tbody></table>`;
+      html += `<h4 style="margin:16px 0 6px;">Rincian per Butir Soal</h4><div style="overflow-x:auto;"><table class="table" style="width:100%;"><thead><tr><th>No</th><th>Soal</th><th>Jawaban Siswa</th><th>Kunci</th><th>Hasil</th></tr></thead><tbody>`;
+      items.forEach(i => { const partial = !i.isCorrect && i.earned > 0;
+        html += `<tr style="${i.isCorrect ? '' : 'background:rgba(239,68,68,0.06);'}"><td><strong>${i.index}</strong></td><td>${escapeHTML((i.questionText || '(soal gambar)').slice(0, 120))}<br><small style="color:var(--text-muted);">${typeName[i.type] || i.type}</small></td><td>${escapeHTML(String(i.userAns ?? '-'))}</td><td>${escapeHTML(String(i.correctAns ?? '-'))}</td><td><span class="badge ${i.isCorrect ? 'badge-success' : partial ? 'badge-secondary' : 'badge-danger'}">${i.isCorrect ? 'Benar' : partial ? 'Sebagian' : 'Salah'}</span></td></tr>`; });
+      html += `</tbody></table></div>`;
+      const pct = Math.round((items.length - wrong.length) / items.length * 100);
+      let rec;
+      if (wrong.length === 0) rec = 'Siswa menjawab semua soal dengan benar. Berikan pengayaan berupa soal tingkat lebih tinggi (HOTS).';
+      else if (pct >= 75) rec = `Siswa sudah menguasai sebagian besar materi. Berikan penguatan khusus pada soal nomor ${wrong.map(w => w.index).join(', ')} dan lanjutkan pengayaan.`;
+      else if (pct >= 50) rec = `Siswa perlu bimbingan pada soal nomor ${wrong.map(w => w.index).join(', ')}. Ulas kembali konsep terkait, berikan contoh dan latihan terbimbing.`;
+      else rec = `Siswa memerlukan remedial. Ajarkan ulang konsep dasar dari soal nomor ${wrong.map(w => w.index).join(', ')} secara bertahap, dengan pendampingan individu atau kelompok kecil.`;
+      const weakTypes = Object.keys(byType).filter(t => byType[t].e / byType[t].n < 0.75).map(t => typeName[t] || t);
+      if (weakTypes.length) rec += ` Latih juga cara mengerjakan bentuk soal: ${weakTypes.join(', ')}.`;
+      const unanswered = items.filter(i => String(i.userAns).includes('Tidak dijawab')).length;
+      if (unanswered) rec += ` Ada ${unanswered} soal tidak dijawab — perhatikan manajemen waktu dan ketelitian siswa.`;
+      html += `<h4 style="margin:16px 0 6px;">Kebutuhan Belajar & Rekomendasi Tindak Lanjut</h4><div style="padding:14px; border-left:4px solid var(--primary); background:rgba(59,130,246,0.06); border-radius:6px;">${escapeHTML(rec)}</div>`;
+      body.innerHTML = html;
+      openModal('studentAnalysisModal');
     }
 
     function exportResultsToCSV() {
@@ -3248,7 +3301,7 @@
             type: q.type,
             userAns: userAns || '(Tidak dijawab)',
             correctAns: q.correctKey,
-            isCorrect: isFullyCorrect,
+            isCorrect: isFullyCorrect, earned: isFullyCorrect ? 1 : 0,
             discussion: q.discussion
           });
         } else if (q.type === 'MCMA') {
@@ -3268,7 +3321,7 @@
             type: q.type,
             userAns: userArr.join(', ') || '(Tidak dijawab)',
             correctAns: keyArr.join(', '),
-            isCorrect: isFullyCorrect,
+            isCorrect: isFullyCorrect, earned: isFullyCorrect ? 1 : 0,
             discussion: q.discussion
           });
         } else if (q.type === 'BS') {
@@ -3293,7 +3346,7 @@
             type: q.type,
             userAns: `${correctStatements} dari 3 pernyataan tepat`,
             correctAns: (q.statements || []).map((s, i) => `${i + 1}:${s.correct ? 'B' : 'S'}`).join(' | '),
-            isCorrect: isFullyCorrect,
+            isCorrect: isFullyCorrect, earned: correctStatements / 3,
             discussion: q.discussion
           });
         }
@@ -3322,7 +3375,13 @@
         kkm: session.kkm || 75,
         isPassed: isPassed,
         totalQuestions: session.questions.length,
-        correctCount: correctQuestionsCount
+        correctCount: correctQuestionsCount,
+        itemAnalysis: reviewDetails.map(d => ({
+          index: d.index, type: d.type,
+          questionText: String(d.questionText || '').slice(0, 300),
+          userAns: d.userAns, correctAns: d.correctAns,
+          isCorrect: d.isCorrect, earned: d.earned
+        }))
       };
 
       const results = getStoredData(STORAGE_KEYS.RESULTS, []);
