@@ -251,15 +251,8 @@
     .brand-logo {
       width: 44px;
       height: 44px;
-      background: var(--primary);
-      color: white;
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 22px;
-      box-shadow: 0 4px 6px rgba(197, 22, 29, 0.25);
+      object-fit: contain;
+      flex-shrink: 0;
     }
 
     .brand-text h1 {
@@ -771,10 +764,10 @@
   <header class="app-header">
     <div class="header-container">
       <a href="#" class="brand" onclick="navigateTo('portal'); return false;">
-        <div class="brand-logo">TKA</div>
+        <img class="brand-logo" src="/__l5e/assets-v1/c9640dad-dd05-4255-aaac-eec8cbcc96ef/logo-donggala.png" alt="Lambang Kabupaten Donggala" width="44" height="44">
         <div class="brand-text">
           <h1>Simulasi TKA SD</h1>
-          <p>SDN 4 Banawa &bull; Tes Kemampuan Akademik</p>
+          <p>Tes Kemampuan Akademik</p>
         </div>
       </a>
       <div class="header-nav" id="topNavControls">
@@ -1637,7 +1630,7 @@
 
     const PASSCODES = {
       ADMIN: 'juluganteng',
-      GURU: 'zulsdn4'
+      GURU: 'suksestka'
     };
 
     // 6 INITIAL PACKAGES DEFINED BY SYSTEM (Admin enters questions into them)
