@@ -9,3 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 - The exam app lives in public/simulasi.html (embedded by / via iframe); its storage layer syncs questions/exams to app_kv and results to exam_results through the database REST API, because the original single-file app relies on synchronous get/setStoredData.
+- Normalize question formats at the synchronous read boundary, including recovered exam sessions, so legacy options and answer keys stay consistent with the current editor and grading without rewriting cloud records on load.

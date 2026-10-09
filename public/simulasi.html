@@ -758,6 +758,13 @@
       border-radius: var(--radius-sm);
       display: none;
     }
+    .question-instruction { margin: 16px 0 12px; font-weight: 600; color: var(--text-muted); }
+    .category-table { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--bg-card); }
+    .category-table th, .category-table td { border: 1px solid var(--border-color); padding: 12px 8px; overflow-wrap: anywhere; }
+    .category-table th { background: var(--bg-body); }
+    .category-table th:first-child { width: 60%; text-align: left; }
+    .category-table td:not(:first-child) { text-align: center; }
+    .category-table input { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
   </style>
 </head>
 <body>
@@ -1151,6 +1158,7 @@
           </div>
 
           <!-- Answer Input Area (PG, MCMA, or Benar/Salah) -->
+          <p id="questionInstructionDisplay" class="question-instruction"></p>
           <div id="answersContainer" style="margin-top: 20px;">
             <!-- Options dynamically rendered here -->
           </div>
@@ -1712,11 +1720,33 @@
       });
     }
 
+    const QUESTION_INSTRUCTIONS = {
+      PG: 'Pilih satu jawaban yang tepat.',
+      MCMA: 'Klik pada setiap jawaban benar! Jawaban benar lebih dari satu.',
+      BS: 'Tentukan Benar atau Salah pada setiap opsi berikut.'
+    };
+
+    function normalizeQuestionFormat(question) {
+      const q = { ...question };
+      if (q.type === 'MCMA') {
+        q.options = ['A', 'B', 'C'].map(key => ({ key, text: '', img: '', ...(q.options || []).find(o => o.key === key) }));
+        q.correctKeys = (q.correctKeys || []).filter(key => ['A', 'B', 'C'].includes(key));
+      } else if (q.type === 'BS') {
+        q.statements = [0, 1, 2].map(i => ({ text: '', correct: true, ...(q.statements || [])[i] }));
+      }
+      return q;
+    }
+
     function getStoredData(key, fallback = []) {
-      if (key in cloudCache) return JSON.parse(JSON.stringify(cloudCache[key]));
+      if (key in cloudCache) {
+        const data = JSON.parse(JSON.stringify(cloudCache[key]));
+        return key === STORAGE_KEYS.QUESTIONS ? data.map(normalizeQuestionFormat) : data;
+      }
       try {
         const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : fallback;
+        const data = item ? JSON.parse(item) : fallback;
+        if (key === STORAGE_KEYS.ACTIVE_SESSION && data) data.questions = data.questions.map(normalizeQuestionFormat);
+        return data;
       } catch (err) {
         return fallback;
       }
@@ -1992,7 +2022,7 @@
           <div style="display:flex; flex-direction:column; gap:12px;">
         `;
 
-        const defaultKeys = ['A', 'B', 'C', 'D'];
+        const defaultKeys = isMulti ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D'];
         defaultKeys.forEach(k => {
           let textVal = '';
           let imgVal = '';
@@ -2149,7 +2179,7 @@
           return;
         }
         questionObj.correctKeys = checkedBoxes;
-        questionObj.options = ['A', 'B', 'C', 'D'].map(k => ({
+        questionObj.options = ['A', 'B', 'C'].map(k => ({
           key: k,
           text: document.getElementById(`opt_text_${k}`).value.trim(),
           img: document.getElementById(`opt_img_${k}`).value.trim()
@@ -2240,6 +2270,7 @@
         ${q.stimulusImg ? `<div class="image-preview-box"><img src="${escapeHTML(q.stimulusImg)}"></div>` : ''}
         <div style="font-weight:700; margin-bottom:14px; font-size:1.05rem;">${escapeHTML(q.questionText)}</div>
         ${q.questionImg ? `<div class="image-preview-box"><img src="${escapeHTML(q.questionImg)}"></div>` : ''}
+        <p class="question-instruction">${QUESTION_INSTRUCTIONS[q.type] || ''}</p>
         <div style="margin-top:14px;">${optHtml}</div>
         ${q.discussion ? `<div style="margin-top:16px; padding:12px; background:#fffbeb; border-radius:8px; font-size:13px; color:#92400e;"><strong>Pembahasan:</strong><br>${escapeHTML(q.discussion)}</div>` : ''}
       `;
@@ -2910,6 +2941,7 @@
       if (q.type === 'PG') badgeType.innerText = 'Pilihan Ganda';
       else if (q.type === 'MCMA') badgeType.innerText = 'Pilihan Ganda Kompleks';
       else if (q.type === 'BS') badgeType.innerText = 'Mengkategorikan Benar / Salah';
+      document.getElementById('questionInstructionDisplay').innerText = QUESTION_INSTRUCTIONS[q.type] || '';
 
       // Review checkbox state
       document.getElementById('chkReviewFlag').checked = !!session.flagged[q.id];
@@ -3004,34 +3036,23 @@
         answersContainer.appendChild(list);
       } else if (q.type === 'BS') {
         const savedAnswers = session.answers[q.id] || {};
-        const table = document.createElement('div');
-        table.style.display = 'flex';
-        table.style.flexDirection = 'column';
-        table.style.gap = '12px';
+        const table = document.createElement('table');
+        table.className = 'category-table';
+        table.innerHTML = '<thead><tr><th scope="col">Pernyataan</th><th scope="col">Benar</th><th scope="col">Salah</th></tr></thead>';
+        const tbody = document.createElement('tbody');
 
         (q.statements || []).forEach((st, idx) => {
           const userChoice = savedAnswers[idx];
-          const row = document.createElement('div');
-          row.style.border = '2px solid var(--border-color)';
-          row.style.borderRadius = 'var(--radius-md)';
-          row.style.padding = '14px 18px';
-          row.style.background = '#ffffff';
+          const row = document.createElement('tr');
 
           row.innerHTML = `
-            <div style="font-weight:600; font-size:15px; margin-bottom:10px;">${idx + 1}. ${escapeHTML(st.text)}</div>
-            <div style="display:flex; gap:20px; align-items:center;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; color:var(--success); font-size:15px;">
-                <input type="radio" name="bs_ans_${idx}" value="BENAR" ${userChoice === 'BENAR' ? 'checked' : ''} onchange="saveBSAnswer('${q.id}', ${idx}, 'BENAR')" style="width:20px; height:20px; accent-color:var(--success);">
-                BENAR
-              </label>
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; color:var(--danger); font-size:15px;">
-                <input type="radio" name="bs_ans_${idx}" value="SALAH" ${userChoice === 'SALAH' ? 'checked' : ''} onchange="saveBSAnswer('${q.id}', ${idx}, 'SALAH')" style="width:20px; height:20px; accent-color:var(--danger);">
-                SALAH
-              </label>
-            </div>
+            <td>${idx + 1}. ${escapeHTML(st.text)}</td>
+            <td><input aria-label="Pernyataan ${idx + 1}: Benar" type="radio" name="bs_ans_${idx}" value="BENAR" ${userChoice === 'BENAR' ? 'checked' : ''} onchange="saveBSAnswer('${q.id}', ${idx}, 'BENAR')"></td>
+            <td><input aria-label="Pernyataan ${idx + 1}: Salah" type="radio" name="bs_ans_${idx}" value="SALAH" ${userChoice === 'SALAH' ? 'checked' : ''} onchange="saveBSAnswer('${q.id}', ${idx}, 'SALAH')"></td>
           `;
-          table.appendChild(row);
+          tbody.appendChild(row);
         });
+        table.appendChild(tbody);
         answersContainer.appendChild(table);
       }
 
@@ -3040,10 +3061,10 @@
       const btnNext = document.getElementById('btnNextQuestion');
       btnPrev.disabled = index === 0;
       if (index === session.questions.length - 1) {
-        btnNext.innerText = 'Selesai &rarr;';
+        btnNext.innerText = 'Akhiri ujian';
         btnNext.onclick = confirmFinishExam;
       } else {
-        btnNext.innerText = 'Berikutnya &rarr;';
+        btnNext.innerText = 'Berikutnya →';
         btnNext.onclick = goToNextQuestion;
       }
 
