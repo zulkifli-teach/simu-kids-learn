@@ -3451,7 +3451,7 @@
             <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">
               Jawaban Anda: <strong>${escapeHTML(item.userAns)}</strong> | Kunci Benar: <strong>${escapeHTML(item.correctAns)}</strong>
             </div>
-            ${item.discussion ? `<div style="font-size:13px; background:#f8fafc; padding:8px 12px; border-radius:6px; margin-top:8px; border-left:3px solid var(--primary);"><strong>Pembahasan:</strong> ${escapeHTML(item.discussion)}</div>` : ''}
+            ${item.discussion ? `<div style="font-size:13px; background:#f8fafc; padding:8px 12px; border-radius:6px; margin-top:8px; border-left:3px solid var(--primary); white-space:pre-line;"><strong>Pembahasan:</strong> ${escapeHTMLMultiline(item.discussion)}</div>` : ''}
           `;
           list.appendChild(div);
         });
