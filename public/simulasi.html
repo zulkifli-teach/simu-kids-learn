@@ -2744,6 +2744,32 @@
       openModal('studentAnalysisModal');
     }
 
+    async function resetStudentProgress() {
+      showCustomConfirm(
+        'Semua data hasil dan progres ujian siswa akan DIHAPUS PERMANEN dari server dan tidak bisa dikembalikan. Bank soal dan daftar ujian tetap aman. Lanjutkan?',
+        'Reset Progres Siswa',
+        async () => {
+          try {
+            const res = await fetch(CLOUD_URL + '/exam_results?id=not.is.null', {
+              method: 'DELETE',
+              headers: cloudHeaders({ 'Prefer': 'return=minimal' })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            cloudCache[STORAGE_KEYS.RESULTS] = [];
+            Object.keys(localStorage)
+              .filter(k => k.startsWith('tka_pending_results_'))
+              .forEach(k => localStorage.removeItem(k));
+            localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
+            renderGuruResults();
+            showToast('Seluruh progres dan hasil ujian siswa berhasil direset.', 'success');
+          } catch (err) {
+            console.error('Gagal mereset progres siswa', err);
+            showToast('Gagal mereset data di server. Periksa koneksi lalu ulangi.', 'error');
+          }
+        }
+      );
+    }
+
     function exportResultsToCSV() {
       const results = getStoredData(STORAGE_KEYS.RESULTS, []);
       if (results.length === 0) {
