@@ -1849,8 +1849,16 @@
         '<': '&lt;',
         '>': '&gt;',
         "'": '&#39;',
-        '"': '&quot;'
+'"': '&quot;'
       }[tag] || tag));
+    }
+
+    // Escape HTML lalu ubah enter/baris baru menjadi pindah baris agar
+    // alur pembahasan tampil runut seperti saat guru menuliskannya.
+    function escapeHTMLMultiline(str) {
+      const safe = escapeHTML(str);
+      if (typeof safe !== 'string') return safe;
+      return safe.replace(/\r?\n/g, '<br>');
     }
 
     function navigateTo(viewId) {
