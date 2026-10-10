@@ -2293,7 +2293,7 @@
         ${q.questionImg ? `<div class="image-preview-box"><img src="${escapeHTML(q.questionImg)}"></div>` : ''}
         <p class="question-instruction">${QUESTION_INSTRUCTIONS[q.type] || ''}</p>
         <div style="margin-top:14px;">${optHtml}</div>
-        ${q.discussion ? `<div style="margin-top:16px; padding:12px; background:#fffbeb; border-radius:8px; font-size:13px; color:#92400e;"><strong>Pembahasan:</strong><br>${escapeHTML(q.discussion)}</div>` : ''}
+        ${q.discussion ? `<div style="margin-top:16px; padding:12px; background:#fffbeb; border-radius:8px; font-size:13px; color:#92400e; white-space:pre-line;"><strong>Pembahasan:</strong><br>${escapeHTMLMultiline(q.discussion)}</div>` : ''}
       `;
 
       openModal('previewQuestionModal');
