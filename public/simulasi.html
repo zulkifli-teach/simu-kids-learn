@@ -1020,10 +1020,14 @@
               </select>
               <input type="text" class="form-control" style="max-width: 260px;" id="searchResultStudent" placeholder="Cari nama siswa..." oninput="renderGuruResults()">
             </div>
-            <div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
               <button class="btn btn-success btn-sm" onclick="exportResultsToCSV()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Ekspor Hasil ke CSV
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="resetStudentProgress()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                Reset Progres Siswa
               </button>
             </div>
           </div>
@@ -2738,6 +2742,32 @@
       html += `<h4 style="margin:16px 0 6px;">Kebutuhan Belajar & Rekomendasi Tindak Lanjut</h4><div style="padding:14px; border-left:4px solid var(--primary); background:rgba(59,130,246,0.06); border-radius:6px;">${escapeHTML(rec)}</div>`;
       body.innerHTML = html;
       openModal('studentAnalysisModal');
+    }
+
+    async function resetStudentProgress() {
+      showCustomConfirm(
+        'Semua data hasil dan progres ujian siswa akan DIHAPUS PERMANEN dari server dan tidak bisa dikembalikan. Bank soal dan daftar ujian tetap aman. Lanjutkan?',
+        'Reset Progres Siswa',
+        async () => {
+          try {
+            const res = await fetch(CLOUD_URL + '/exam_results?id=not.is.null', {
+              method: 'DELETE',
+              headers: cloudHeaders({ 'Prefer': 'return=minimal' })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            cloudCache[STORAGE_KEYS.RESULTS] = [];
+            Object.keys(localStorage)
+              .filter(k => k.startsWith('tka_pending_results_'))
+              .forEach(k => localStorage.removeItem(k));
+            localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
+            renderGuruResults();
+            showToast('Seluruh progres dan hasil ujian siswa berhasil direset.', 'success');
+          } catch (err) {
+            console.error('Gagal mereset progres siswa', err);
+            showToast('Gagal mereset data di server. Periksa koneksi lalu ulangi.', 'error');
+          }
+        }
+      );
     }
 
     function exportResultsToCSV() {
