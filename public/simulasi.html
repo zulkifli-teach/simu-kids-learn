@@ -2745,6 +2745,10 @@
     }
 
     async function resetStudentProgress() {
+      if (currentRole !== 'admin') {
+        showToast('Fitur ini hanya tersedia untuk Admin.', 'error');
+        return;
+      }
       showCustomConfirm(
         'Semua data hasil dan progres ujian siswa akan DIHAPUS PERMANEN dari server dan tidak bisa dikembalikan. Bank soal dan daftar ujian tetap aman. Lanjutkan?',
         'Reset Progres Siswa',
