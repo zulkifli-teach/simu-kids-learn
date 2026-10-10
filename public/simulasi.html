@@ -1849,8 +1849,16 @@
         '<': '&lt;',
         '>': '&gt;',
         "'": '&#39;',
-        '"': '&quot;'
+'"': '&quot;'
       }[tag] || tag));
+    }
+
+    // Escape HTML lalu ubah enter/baris baru menjadi pindah baris agar
+    // alur pembahasan tampil runut seperti saat guru menuliskannya.
+    function escapeHTMLMultiline(str) {
+      const safe = escapeHTML(str);
+      if (typeof safe !== 'string') return safe;
+      return safe.replace(/\r?\n/g, '<br>');
     }
 
     function navigateTo(viewId) {
@@ -2285,7 +2293,7 @@
         ${q.questionImg ? `<div class="image-preview-box"><img src="${escapeHTML(q.questionImg)}"></div>` : ''}
         <p class="question-instruction">${QUESTION_INSTRUCTIONS[q.type] || ''}</p>
         <div style="margin-top:14px;">${optHtml}</div>
-        ${q.discussion ? `<div style="margin-top:16px; padding:12px; background:#fffbeb; border-radius:8px; font-size:13px; color:#92400e;"><strong>Pembahasan:</strong><br>${escapeHTML(q.discussion)}</div>` : ''}
+        ${q.discussion ? `<div style="margin-top:16px; padding:12px; background:#fffbeb; border-radius:8px; font-size:13px; color:#92400e; white-space:pre-line;"><strong>Pembahasan:</strong><br>${escapeHTMLMultiline(q.discussion)}</div>` : ''}
       `;
 
       openModal('previewQuestionModal');
@@ -3443,7 +3451,7 @@
             <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">
               Jawaban Anda: <strong>${escapeHTML(item.userAns)}</strong> | Kunci Benar: <strong>${escapeHTML(item.correctAns)}</strong>
             </div>
-            ${item.discussion ? `<div style="font-size:13px; background:#f8fafc; padding:8px 12px; border-radius:6px; margin-top:8px; border-left:3px solid var(--primary);"><strong>Pembahasan:</strong> ${escapeHTML(item.discussion)}</div>` : ''}
+            ${item.discussion ? `<div style="font-size:13px; background:#f8fafc; padding:8px 12px; border-radius:6px; margin-top:8px; border-left:3px solid var(--primary); white-space:pre-line;"><strong>Pembahasan:</strong> ${escapeHTMLMultiline(item.discussion)}</div>` : ''}
           `;
           list.appendChild(div);
         });
