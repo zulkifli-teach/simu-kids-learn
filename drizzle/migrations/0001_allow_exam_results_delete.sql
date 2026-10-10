@@ -1,0 +1,1 @@
+CREATE POLICY "results delete" ON public.exam_results FOR DELETE TO anon, authenticated USING (true);
