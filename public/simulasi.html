@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Simulasi TKA SD</title>
+  <link rel="stylesheet" href="/vendor/katex/katex.min.css">
+  <script src="/vendor/katex/katex.min.js"></script>
   <style>
     :root {
       --primary: #c5161d;
@@ -758,6 +760,8 @@
       border-radius: var(--radius-sm);
       display: none;
     }
+    .math-preview { margin-top: 8px; line-height: 1.8; overflow-wrap: anywhere; color: var(--text-main); }
+    .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
     .question-instruction { margin: 16px 0 12px; font-weight: 600; color: var(--text-muted); }
     .category-table { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--bg-card); }
     .category-table th, .category-table td { border: 1px solid var(--border-color); padding: 12px 8px; overflow-wrap: anywhere; }
@@ -1865,6 +1869,45 @@
       return safe.replace(/\r?\n/g, '<br>');
     }
 
+    // Render only delimited math; all ordinary text remains escaped.
+    function renderQuestionText(value) {
+      const text = String(value ?? '');
+      const pattern = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g;
+      let html = '';
+      let last = 0;
+      for (const match of text.matchAll(pattern)) {
+        html += escapeHTMLMultiline(text.slice(last, match.index));
+        const formula = match[1] ?? match[2] ?? match[3] ?? match[4];
+        try {
+          html += window.katex.renderToString(formula, {
+            displayMode: match[1] !== undefined || match[4] !== undefined,
+            throwOnError: true, trust: false, strict: 'ignore', maxExpand: 200,
+          });
+        } catch {
+          html += escapeHTMLMultiline(match[0]);
+        }
+        last = match.index + match[0].length;
+      }
+      return html + escapeHTMLMultiline(text.slice(last));
+    }
+
+    function refreshMathPreviews() {
+      document.querySelectorAll('#questionEditorForm textarea, #questionEditorForm input[id^="opt_text_"], #questionEditorForm input[id^="bs_text_"]').forEach(input => {
+        let preview = document.getElementById('mathPreview_' + input.id);
+        if (!preview) {
+          preview = document.createElement('div');
+          preview.id = 'mathPreview_' + input.id;
+          preview.className = 'math-preview';
+          preview.setAttribute('aria-live', 'polite');
+          input.insertAdjacentElement('afterend', preview);
+        }
+        const content = renderQuestionText(input.value);
+        preview.hidden = !content.includes('class="katex');
+        preview.innerHTML = preview.hidden ? '' : content;
+      });
+    }
+    document.getElementById('questionEditorForm').addEventListener('input', refreshMathPreviews);
+
     function navigateTo(viewId) {
       document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
       const target = document.getElementById(`view-${viewId}`);
@@ -2030,6 +2073,7 @@
         handleQuestionTypeChange();
       }
 
+      refreshMathPreviews();
       openModal('questionEditorModal');
     }
 
@@ -2088,6 +2132,7 @@
         });
         html += `</div>`;
         container.innerHTML = html;
+        refreshMathPreviews();
       } else if (type === 'BS') {
         // 3 Statements Benar / Salah
         let html = `
@@ -2124,6 +2169,7 @@
         });
         html += `</div>`;
         container.innerHTML = html;
+        refreshMathPreviews();
       }
     }
 
@@ -2263,7 +2309,7 @@
       if (q.type === 'PG') {
         optHtml = q.options.map(o => `
           <div style="padding:8px 12px; border-radius:6px; margin-bottom:6px; background:${o.key === q.correctKey ? '#dcfce7' : '#f8fafc'}; border:1px solid ${o.key === q.correctKey ? '#16a34a' : '#e2e8f0'};">
-            <strong>${o.key}.</strong> ${escapeHTML(o.text)} ${o.key === q.correctKey ? '<span style="color:#16a34a; font-weight:bold;">(Kunci Jawaban)</span>' : ''}
+            <strong>${o.key}.</strong> ${renderQuestionText(o.text)} ${o.key === q.correctKey ? '<span style="color:#16a34a; font-weight:bold;">(Kunci Jawaban)</span>' : ''}
             ${o.img ? `<div style="margin-top:6px;"><img src="${escapeHTML(o.img)}" style="max-height:120px; object-fit:contain;"></div>` : ''}
           </div>
         `).join('');
@@ -2272,7 +2318,7 @@
           const isKunci = (q.correctKeys || []).includes(o.key);
           return `
             <div style="padding:8px 12px; border-radius:6px; margin-bottom:6px; background:${isKunci ? '#dcfce7' : '#f8fafc'}; border:1px solid ${isKunci ? '#16a34a' : '#e2e8f0'};">
-              <strong>${o.key}.</strong> ${escapeHTML(o.text)} ${isKunci ? '<span style="color:#16a34a; font-weight:bold;">(Kunci Benar)</span>' : ''}
+              <strong>${o.key}.</strong> ${renderQuestionText(o.text)} ${isKunci ? '<span style="color:#16a34a; font-weight:bold;">(Kunci Benar)</span>' : ''}
               ${o.img ? `<div style="margin-top:6px;"><img src="${escapeHTML(o.img)}" style="max-height:120px; object-fit:contain;"></div>` : ''}
             </div>
           `;
@@ -2280,7 +2326,7 @@
       } else if (q.type === 'BS') {
         optHtml = (q.statements || []).map((s, idx) => `
           <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid #e2e8f0;">
-            <span>${idx + 1}. ${escapeHTML(s.text)}</span>
+            <span>${idx + 1}. ${renderQuestionText(s.text)}</span>
             <span class="badge ${s.correct ? 'badge-success' : 'badge-danger'}">${s.correct ? 'BENAR' : 'SALAH'}</span>
           </div>
         `).join('');
@@ -2291,13 +2337,13 @@
           <span class="badge badge-primary">${escapeHTML(q.type)}</span>
           <span class="badge badge-secondary">Bobot: ${q.weight || 1}</span>
         </div>
-        ${q.stimulusText ? `<div class="stimulus-container"><strong>Wacana:</strong><br>${escapeHTML(q.stimulusText)}</div>` : ''}
+        ${q.stimulusText ? `<div class="stimulus-container"><strong>Wacana:</strong><br>${renderQuestionText(q.stimulusText)}</div>` : ''}
         ${q.stimulusImg ? `<div class="image-preview-box"><img src="${escapeHTML(q.stimulusImg)}"></div>` : ''}
-        <div style="font-weight:700; margin-bottom:14px; font-size:1.05rem;">${escapeHTML(q.questionText)}</div>
+        <div style="font-weight:700; margin-bottom:14px; font-size:1.05rem;">${renderQuestionText(q.questionText)}</div>
         ${q.questionImg ? `<div class="image-preview-box"><img src="${escapeHTML(q.questionImg)}"></div>` : ''}
         <p class="question-instruction">${QUESTION_INSTRUCTIONS[q.type] || ''}</p>
         <div style="margin-top:14px;">${optHtml}</div>
-        ${q.discussion ? `<div style="margin-top:16px; padding:12px; background:#fffbeb; border-radius:8px; font-size:13px; color:#92400e; white-space:pre-line;"><strong>Pembahasan:</strong><br>${escapeHTMLMultiline(q.discussion)}</div>` : ''}
+        ${q.discussion ? `<div style="margin-top:16px; padding:12px; background:#fffbeb; border-radius:8px; font-size:13px; color:#92400e; white-space:pre-line;"><strong>Pembahasan:</strong><br>${renderQuestionText(q.discussion)}</div>` : ''}
       `;
 
       openModal('previewQuestionModal');
@@ -3045,7 +3091,7 @@
       const stimulusSection = document.getElementById('stimulusSection');
       if (q.stimulusText || q.stimulusImg) {
         stimulusSection.style.display = 'block';
-        document.getElementById('stimulusTextDisplay').innerText = q.stimulusText || '';
+        document.getElementById('stimulusTextDisplay').innerHTML = renderQuestionText(q.stimulusText);
         const imgWrapper = document.getElementById('stimulusImgWrapper');
         if (q.stimulusImg) {
           imgWrapper.style.display = 'block';
@@ -3065,7 +3111,7 @@
       }
 
       // Question body render
-      document.getElementById('questionTextDisplay').innerText = q.questionText;
+      document.getElementById('questionTextDisplay').innerHTML = renderQuestionText(q.questionText);
       const qImgWrapper = document.getElementById('questionImgWrapper');
       if (q.questionImg) {
         qImgWrapper.style.display = 'block';
@@ -3100,7 +3146,7 @@
             <input type="radio" class="option-radio" name="student_opt_${q.id}" ${isSelected ? 'checked' : ''}>
             <span class="option-key">${opt.key}.</span>
             <div class="option-content">
-              <div>${escapeHTML(opt.text)}</div>
+              <div>${renderQuestionText(opt.text)}</div>
               ${opt.img ? `<div style="margin-top:8px;"><img src="${escapeHTML(opt.img)}" style="max-height:160px; object-fit:contain; border-radius:6px;" onclick="event.stopPropagation(); zoomImage(this.src);"></div>` : ''}
             </div>
           `;
@@ -3122,7 +3168,7 @@
             <input type="checkbox" class="option-checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleMCMAOption('${q.id}', '${opt.key}');">
             <span class="option-key">${opt.key}.</span>
             <div class="option-content">
-              <div>${escapeHTML(opt.text)}</div>
+              <div>${renderQuestionText(opt.text)}</div>
               ${opt.img ? `<div style="margin-top:8px;"><img src="${escapeHTML(opt.img)}" style="max-height:160px; object-fit:contain; border-radius:6px;" onclick="event.stopPropagation(); zoomImage(this.src);"></div>` : ''}
             </div>
           `;
@@ -3141,7 +3187,7 @@
           const row = document.createElement('tr');
 
           row.innerHTML = `
-            <td>${idx + 1}. ${escapeHTML(st.text)}</td>
+            <td>${idx + 1}. ${renderQuestionText(st.text)}</td>
             <td><input aria-label="Pernyataan ${idx + 1}: Benar" type="radio" name="bs_ans_${idx}" value="BENAR" ${userChoice === 'BENAR' ? 'checked' : ''} onchange="saveBSAnswer('${q.id}', ${idx}, 'BENAR')"></td>
             <td><input aria-label="Pernyataan ${idx + 1}: Salah" type="radio" name="bs_ans_${idx}" value="SALAH" ${userChoice === 'SALAH' ? 'checked' : ''} onchange="saveBSAnswer('${q.id}', ${idx}, 'SALAH')"></td>
           `;
@@ -3481,11 +3527,11 @@
                 ${item.isCorrect ? 'Jawaban Benar' : 'Jawaban Salah'}
               </span>
             </div>
-            <div style="font-size:14px; margin-bottom:8px;">${escapeHTML(item.questionText)}</div>
+            <div style="font-size:14px; margin-bottom:8px;">${renderQuestionText(item.questionText)}</div>
             <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">
-              Jawaban Anda: <strong>${escapeHTML(item.userAns)}</strong> | Kunci Benar: <strong>${escapeHTML(item.correctAns)}</strong>
+              Jawaban Anda: <strong>${renderQuestionText(item.userAns)}</strong> | Kunci Benar: <strong>${renderQuestionText(item.correctAns)}</strong>
             </div>
-            ${item.discussion ? `<div style="font-size:13px; background:#f8fafc; padding:8px 12px; border-radius:6px; margin-top:8px; border-left:3px solid var(--primary); white-space:pre-line;"><strong>Pembahasan:</strong> ${escapeHTMLMultiline(item.discussion)}</div>` : ''}
+            ${item.discussion ? `<div style="font-size:13px; background:#f8fafc; padding:8px 12px; border-radius:6px; margin-top:8px; border-left:3px solid var(--primary); white-space:pre-line;"><strong>Pembahasan:</strong> ${renderQuestionText(item.discussion)}</div>` : ''}
           `;
           list.appendChild(div);
         });
